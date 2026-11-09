@@ -10,11 +10,9 @@ import {
 
 import {
     useAuth
-} from '../context/AuthContext.jsx'
+} from '../context/AuthContext'
 
-import CommentSection
-    from '../components/CommentSection.jsx'
-
+import CommentSection from '../components/CommentSection'
 
 function PostDetails() {
 

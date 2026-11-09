@@ -3,22 +3,42 @@ import {
     Route
 } from 'react-router-dom'
 
-import Header from './components/Header.jsx'
+import Header
+    from './components/Header.jsx'
 
-import Home from './pages/Home.jsx'
-import Login from './pages/Login.jsx'
-import Signup from './pages/Signup.jsx'
-import Pricing from './pages/Pricing.jsx'
-import Post from './pages/Post.jsx'
-import BrowsePosts from './pages/BrowsePosts.jsx'
+import Home
+    from './pages/Home.jsx'
 
-import PostDetails from './pages/PostDetails.jsx'
-import SavedPosts from './pages/SavedPosts.jsx'
-import AdminDashboard from './pages/AdminDashboard.jsx'
+import Login
+    from './pages/Login.jsx'
+
+import ForgotPassword
+    from './pages/ForgotPassword.jsx'
+
+import Signup
+    from './pages/Signup.jsx'
+
+import Pricing
+    from './pages/Pricing.jsx'
+
+import Post
+    from './pages/Post.jsx'
+
+import BrowsePosts
+    from './pages/BrowsePosts.jsx'
+
+import PostDetails
+    from './pages/PostDetails.jsx'
+
+import SavedPosts
+    from './pages/SavedPosts.jsx'
+
+import AdminDashboard
+    from './pages/AdminDashboard'
 
 import {
     useAuth
-} from './context/AuthContext.jsx'
+} from './context/AuthContext'
 
 
 function App() {
@@ -28,45 +48,103 @@ function App() {
         updateUser
     } = useAuth()
 
+
     return (
+
         <>
+
             <Header />
+
 
             <Routes>
 
+
+                {/* ====================================
+                    HOME
+                ==================================== */}
+
                 <Route
                     path="/"
-                    element={<Home />}
+                    element={
+                        <Home />
+                    }
                 />
+
+
+                {/* ====================================
+                    LOGIN
+                ==================================== */}
 
                 <Route
                     path="/login"
-                    element={<Login />}
+                    element={
+                        <Login />
+                    }
                 />
+
+
+                {/* ====================================
+                    FORGOT PASSWORD / OTP
+                ==================================== */}
+
+                <Route
+                    path="/forgot-password"
+                    element={
+                        <ForgotPassword />
+                    }
+                />
+
+
+                {/* ====================================
+                    SIGN UP
+                ==================================== */}
 
                 <Route
                     path="/signup"
-                    element={<Signup />}
+                    element={
+                        <Signup />
+                    }
                 />
+
+
+                {/* ====================================
+                    PRICING
+                ==================================== */}
 
                 <Route
                     path="/pricing"
                     element={
                         <Pricing
-                            user={user}
-                            onUserUpdate={updateUser}
+                            user={
+                                user
+                            }
+                            onUserUpdate={
+                                updateUser
+                            }
                         />
                     }
                 />
+
+
+                {/* ====================================
+                    CREATE POST
+                ==================================== */}
 
                 <Route
                     path="/post"
                     element={
                         <Post
-                            user={user}
+                            user={
+                                user
+                            }
                         />
                     }
                 />
+
+
+                {/* ====================================
+                    BROWSE POSTS
+                ==================================== */}
 
                 <Route
                     path="/browse-posts"
@@ -75,8 +153,12 @@ function App() {
                     }
                 />
 
-                {/* HD FEATURE:
-                    Full post page with comments */}
+
+                {/* ====================================
+                    HD FEATURE:
+                    POST DETAILS + COMMENTS
+                ==================================== */}
+
                 <Route
                     path="/posts/:postId"
                     element={
@@ -84,8 +166,12 @@ function App() {
                     }
                 />
 
-                {/* HD FEATURE:
-                    Persistent saved posts */}
+
+                {/* ====================================
+                    HD FEATURE:
+                    SAVED POSTS
+                ==================================== */}
+
                 <Route
                     path="/saved-posts"
                     element={
@@ -93,8 +179,12 @@ function App() {
                     }
                 />
 
-                {/* HD FEATURE:
-                    Role-based admin dashboard */}
+
+                {/* ====================================
+                    HD FEATURE:
+                    ADMIN DASHBOARD
+                ==================================== */}
+
                 <Route
                     path="/admin"
                     element={
@@ -102,9 +192,13 @@ function App() {
                     }
                 />
 
+
             </Routes>
+
         </>
+
     )
 }
+
 
 export default App

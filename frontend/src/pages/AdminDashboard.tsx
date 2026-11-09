@@ -9,39 +9,152 @@ import {
 
 import {
     useAuth
-} from '../context/AuthContext.jsx'
+} from '../context/AuthContext'
+
+import type {
+    DashboardStats,
+    Post,
+    User
+} from '../types'
 
 
 // ====================================================
-// HD1 - ADMIN DASHBOARD STATE WITH useReducer
+// TYPES
 // ====================================================
 
-const initialState = {
-    loading: true,
+interface DashboardState {
+    loading:
+        boolean
 
-    message: '',
+    message:
+        string
 
-    stats: {
-        totalUsers: 0,
-        totalPosts: 0,
-        freePosts: 0,
-        paidPosts: 0,
-        questions: 0,
-        articles: 0,
-        activePosts: 0,
-        hiddenPosts: 0
-    },
+    stats:
+        DashboardStats
 
-    posts: [],
+    posts:
+        Post[]
 
-    updatingPostId: null
+    updatingPostId:
+        string | null
 }
 
 
+type DashboardAction =
+    | {
+        type:
+            'LOAD_START'
+    }
+
+    | {
+        type:
+            'LOAD_SUCCESS'
+
+        payload: {
+            stats:
+                DashboardStats
+
+            posts:
+                Post[]
+        }
+    }
+
+    | {
+        type:
+            'LOAD_ERROR'
+
+        payload:
+            string
+    }
+
+    | {
+        type:
+            'UPDATE_START'
+
+        payload:
+            string
+    }
+
+    | {
+        type:
+            'UPDATE_SUCCESS'
+
+        payload: {
+            postId:
+                string
+
+            status:
+                'active' | 'hidden'
+
+            message:
+                string
+        }
+    }
+
+    | {
+        type:
+            'UPDATE_ERROR'
+
+        payload:
+            string
+    }
+
+
+// ====================================================
+// INITIAL STATE
+// ====================================================
+
+const initialState: DashboardState = {
+
+    loading:
+        true,
+
+    message:
+        '',
+
+    stats: {
+
+        totalUsers:
+            0,
+
+        totalPosts:
+            0,
+
+        freePosts:
+            0,
+
+        paidPosts:
+            0,
+
+        questions:
+            0,
+
+        articles:
+            0,
+
+        activePosts:
+            0,
+
+        hiddenPosts:
+            0
+    },
+
+    posts:
+        [],
+
+    updatingPostId:
+        null
+}
+
+
+// ====================================================
+// REDUCER
+// ====================================================
+
 function dashboardReducer(
-    state,
-    action
-) {
+    state: DashboardState,
+    action: DashboardAction
+): DashboardState {
 
     switch (
         action.type
@@ -105,9 +218,15 @@ function dashboardReducer(
             }
 
 
-        case 'UPDATE_SUCCESS':
+        case 'UPDATE_SUCCESS': {
+
+            const becomingActive =
+                action.payload.status ===
+                'active'
+
 
             return {
+
                 ...state,
 
                 updatingPostId:
@@ -143,18 +262,23 @@ function dashboardReducer(
                     ...state.stats,
 
                     activePosts:
-                        action.payload.status ===
-                        'active'
+                        becomingActive
                             ? state.stats.activePosts + 1
-                            : state.stats.activePosts - 1,
+                            : Math.max(
+                                0,
+                                state.stats.activePosts - 1
+                            ),
 
                     hiddenPosts:
-                        action.payload.status ===
-                        'hidden'
-                            ? state.stats.hiddenPosts + 1
-                            : state.stats.hiddenPosts - 1
+                        becomingActive
+                            ? Math.max(
+                                0,
+                                state.stats.hiddenPosts - 1
+                            )
+                            : state.stats.hiddenPosts + 1
                 }
             }
+        }
 
 
         case 'UPDATE_ERROR':
@@ -183,11 +307,24 @@ function dashboardReducer(
 
 function AdminDashboard() {
 
+    const auth =
+        useAuth() as {
+            user:
+                User | null
+
+            token:
+                string | null
+
+            role:
+                'user' | 'admin'
+        }
+
+
     const {
         user,
         token,
         role
-    } = useAuth()
+    } = auth
 
 
     const [
@@ -207,7 +344,7 @@ function AdminDashboard() {
             role === 'admin'
         ) {
 
-            loadDashboard()
+            void loadDashboard()
 
         } else {
 
@@ -231,7 +368,13 @@ function AdminDashboard() {
     // LOAD DASHBOARD
     // ====================================================
 
-    async function loadDashboard() {
+    async function loadDashboard():
+        Promise<void> {
+
+        if (!token) {
+            return
+        }
+
 
         try {
 
@@ -256,23 +399,41 @@ function AdminDashboard() {
                 )
 
 
-            const data =
+            const data:
+                unknown =
                 await response.json()
 
 
             if (!response.ok) {
+
+                const errorData =
+                    data as {
+                        message?:
+                            string
+                    }
+
 
                 dispatch({
                     type:
                         'LOAD_ERROR',
 
                     payload:
-                        data.message ||
+                        errorData.message ||
                         'Unable to load the admin dashboard.'
                 })
 
                 return
             }
+
+
+            const dashboardData =
+                data as {
+                    stats:
+                        DashboardStats
+
+                    posts:
+                        Post[]
+                }
 
 
             dispatch({
@@ -281,13 +442,13 @@ function AdminDashboard() {
 
                 payload: {
                     stats:
-                        data.stats,
+                        dashboardData.stats,
 
                     posts:
                         Array.isArray(
-                            data.posts
+                            dashboardData.posts
                         )
-                            ? data.posts
+                            ? dashboardData.posts
                             : []
                 }
             })
@@ -317,8 +478,13 @@ function AdminDashboard() {
     // ====================================================
 
     async function updatePostStatus(
-        post
-    ) {
+        post: Post
+    ): Promise<void> {
+
+        if (!token) {
+            return
+        }
+
 
         const shouldHide =
             post.status ===
@@ -331,7 +497,8 @@ function AdminDashboard() {
                 : 'restore'
 
 
-        const newStatus =
+        const newStatus:
+            'active' | 'hidden' =
             shouldHide
                 ? 'hidden'
                 : 'active'
@@ -364,7 +531,10 @@ function AdminDashboard() {
 
 
             const data =
-                await response.json()
+                await response.json() as {
+                    message?:
+                        string
+                }
 
 
             if (!response.ok) {
@@ -387,6 +557,7 @@ function AdminDashboard() {
                     'UPDATE_SUCCESS',
 
                 payload: {
+
                     postId:
                         post.id,
 
@@ -420,12 +591,13 @@ function AdminDashboard() {
 
 
     // ====================================================
-    // DATE FORMATTER
+    // DATE FORMAT
     // ====================================================
 
     function formatDate(
-        dateValue
-    ) {
+        dateValue:
+            string | null
+    ): string {
 
         if (!dateValue) {
 
@@ -504,18 +676,12 @@ function AdminDashboard() {
     }
 
 
-    // ====================================================
-    // PAGE
-    // ====================================================
-
     return (
 
         <main className="min-h-[80vh] bg-gray-50 px-6 py-12">
 
             <div className="max-w-7xl mx-auto">
 
-
-                {/* HEADER */}
 
                 <div className="mb-10">
 
@@ -543,8 +709,6 @@ function AdminDashboard() {
                 </div>
 
 
-                {/* LOADING */}
-
                 {state.loading && (
 
                     <div className="bg-white border border-gray-300 rounded-lg p-10 text-center">
@@ -557,8 +721,6 @@ function AdminDashboard() {
 
                 )}
 
-
-                {/* MESSAGE */}
 
                 {!state.loading &&
                     state.message && (
@@ -588,10 +750,6 @@ function AdminDashboard() {
 
                     <>
 
-                        {/* ================================= */}
-                        {/* STATISTICS */}
-                        {/* ================================= */}
-
                         <section className="mb-12">
 
                             <h2 className="text-2xl font-bold mb-5">
@@ -601,14 +759,12 @@ function AdminDashboard() {
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
 
-
                                 <StatCard
                                     title="Total Users"
                                     value={
                                         state.stats.totalUsers
                                     }
                                 />
-
 
                                 <StatCard
                                     title="Total Posts"
@@ -617,14 +773,12 @@ function AdminDashboard() {
                                     }
                                 />
 
-
                                 <StatCard
                                     title="Free Posts"
                                     value={
                                         state.stats.freePosts
                                     }
                                 />
-
 
                                 <StatCard
                                     title="Paid Posts"
@@ -633,14 +787,12 @@ function AdminDashboard() {
                                     }
                                 />
 
-
                                 <StatCard
                                     title="Questions"
                                     value={
                                         state.stats.questions
                                     }
                                 />
-
 
                                 <StatCard
                                     title="Articles"
@@ -649,14 +801,12 @@ function AdminDashboard() {
                                     }
                                 />
 
-
                                 <StatCard
                                     title="Active Posts"
                                     value={
                                         state.stats.activePosts
                                     }
                                 />
-
 
                                 <StatCard
                                     title="Hidden Posts"
@@ -669,10 +819,6 @@ function AdminDashboard() {
 
                         </section>
 
-
-                        {/* ================================= */}
-                        {/* MODERATION */}
-                        {/* ================================= */}
 
                         <section>
 
@@ -693,8 +839,8 @@ function AdminDashboard() {
 
                                 <button
                                     type="button"
-                                    onClick={
-                                        loadDashboard
+                                    onClick={() =>
+                                        void loadDashboard()
                                     }
                                     className="border border-gray-400 px-4 py-2 rounded hover:bg-gray-100"
                                 >
@@ -729,17 +875,13 @@ function AdminDashboard() {
                                                 className="bg-white border border-gray-300 rounded-lg p-6 shadow-sm"
                                             >
 
-
                                                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
 
-
-                                                    {/* POST DETAILS */}
 
                                                     <div className="flex-1">
 
 
                                                         <div className="flex flex-wrap gap-2 mb-3">
-
 
                                                             <span className="bg-gray-100 text-gray-700 text-xs font-semibold px-3 py-1 rounded-full uppercase">
 
@@ -826,8 +968,6 @@ function AdminDashboard() {
                                                     </div>
 
 
-                                                    {/* MODERATION BUTTONS */}
-
                                                     <div className="flex flex-wrap gap-3">
 
 
@@ -851,7 +991,7 @@ function AdminDashboard() {
                                                                 post.id
                                                             }
                                                             onClick={() =>
-                                                                updatePostStatus(
+                                                                void updatePostStatus(
                                                                     post
                                                                 )
                                                             }
@@ -903,13 +1043,22 @@ function AdminDashboard() {
 
 
 // ====================================================
-// STAT CARD
+// STAT CARD TYPES
 // ====================================================
+
+interface StatCardProps {
+    title:
+        string
+
+    value:
+        number
+}
+
 
 function StatCard({
     title,
     value
-}) {
+}: StatCardProps) {
 
     return (
 

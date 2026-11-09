@@ -1,43 +1,95 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext.jsx'
+import {
+    useState
+} from 'react'
+
+import {
+    Link,
+    useNavigate
+} from 'react-router-dom'
+
+import {
+    useAuth
+} from '../context/AuthContext'
+
 
 function Login() {
-    const navigate = useNavigate()
+
+    const navigate =
+        useNavigate()
+
 
     const {
         login
     } = useAuth()
 
-    const [form, setForm] = useState({
-        email: '',
-        password: '',
-        message: '',
-        loading: false
+
+    const [
+        form,
+        setForm
+    ] = useState({
+
+        email:
+            '',
+
+        password:
+            '',
+
+        message:
+            '',
+
+        loading:
+            false
     })
 
-    function updateForm(changes) {
-        setForm((previous) => ({
-            ...previous,
-            ...changes
-        }))
+
+    function updateForm(
+        changes
+    ) {
+
+        setForm(
+            (previous) => ({
+                ...previous,
+                ...changes
+            })
+        )
     }
 
-    async function handleLogin(event) {
+
+    // ====================================================
+    // EMAIL / PASSWORD LOGIN
+    // ====================================================
+
+    async function handleLogin(
+        event
+    ) {
+
         event.preventDefault()
 
-        if (form.loading) {
+
+        if (
+            form.loading
+        ) {
             return
         }
 
+
         updateForm({
-            message: ''
+            message:
+                ''
         })
 
-        const cleanEmail =
-            form.email.trim().toLowerCase()
 
-        if (!cleanEmail || !form.password) {
+        const cleanEmail =
+            form.email
+                .trim()
+                .toLowerCase()
+
+
+        if (
+            !cleanEmail ||
+            !form.password
+        ) {
+
             updateForm({
                 message:
                     'Please enter your email and password.'
@@ -46,32 +98,47 @@ function Login() {
             return
         }
 
+
         try {
+
             updateForm({
-                loading: true
+                loading:
+                    true
             })
 
-            const response = await fetch(
-                `${import.meta.env.VITE_API_URL}/login`,
-                {
-                    method: 'POST',
 
-                    headers: {
-                        'Content-Type':
-                            'application/json'
-                    },
+            const response =
+                await fetch(
+                    `${import.meta.env.VITE_API_URL}/login`,
+                    {
+                        method:
+                            'POST',
 
-                    body: JSON.stringify({
-                        email: cleanEmail,
-                        password: form.password
-                    })
-                }
-            )
+                        headers: {
+                            'Content-Type':
+                                'application/json'
+                        },
+
+                        body:
+                            JSON.stringify({
+                                email:
+                                    cleanEmail,
+
+                                password:
+                                    form.password
+                            })
+                    }
+                )
+
 
             const data =
                 await response.json()
 
-            if (!response.ok) {
+
+            if (
+                !response.ok
+            ) {
+
                 updateForm({
                     message:
                         data.message ||
@@ -81,53 +148,54 @@ function Login() {
                 return
             }
 
-            /*
-                HD React Concept: useContext
-
-                Instead of Login saving authentication
-                state itself or passing data back through
-                props, the shared AuthContext now manages:
-
-                - user
-                - JWT token
-                - subscription plan
-                - role
-            */
 
             login(
                 data.user,
                 data.token
             )
 
+
             navigate(
                 '/',
                 {
-                    replace: true
+                    replace:
+                        true
                 }
             )
 
+
         } catch (error) {
+
             console.error(
                 'Login error:',
                 error
             )
+
 
             updateForm({
                 message:
                     'Unable to connect to the server. Please try again.'
             })
 
+
         } finally {
+
             updateForm({
-                loading: false
+                loading:
+                    false
             })
+
         }
     }
 
+
     return (
+
         <main className="min-h-[80vh] flex items-center justify-center px-6">
 
+
             <div className="w-full max-w-md border border-blue-400 p-10">
+
 
                 <div className="flex justify-end mb-6">
 
@@ -140,7 +208,13 @@ function Login() {
 
                 </div>
 
-                <form onSubmit={handleLogin}>
+
+                <form
+                    onSubmit={
+                        handleLogin
+                    }
+                >
+
 
                     <div className="mb-6">
 
@@ -151,25 +225,32 @@ function Login() {
                             Your email
                         </label>
 
+
                         <input
                             id="email"
                             type="email"
                             autoComplete="email"
-                            value={form.email}
-                            onChange={(event) =>
-                                updateForm({
-                                    email:
-                                        event.target.value
-                                })
+                            value={
+                                form.email
+                            }
+                            onChange={
+                                (event) =>
+                                    updateForm({
+                                        email:
+                                            event.target.value
+                                    })
                             }
                             required
-                            disabled={form.loading}
+                            disabled={
+                                form.loading
+                            }
                             className="w-full border border-gray-300 px-4 py-3"
                         />
 
                     </div>
 
-                    <div className="mb-8">
+
+                    <div className="mb-3">
 
                         <label
                             htmlFor="password"
@@ -178,46 +259,75 @@ function Login() {
                             Your password
                         </label>
 
+
                         <input
                             id="password"
                             type="password"
                             autoComplete="current-password"
-                            value={form.password}
-                            onChange={(event) =>
-                                updateForm({
-                                    password:
-                                        event.target.value
-                                })
+                            value={
+                                form.password
+                            }
+                            onChange={
+                                (event) =>
+                                    updateForm({
+                                        password:
+                                            event.target.value
+                                    })
                             }
                             required
-                            disabled={form.loading}
+                            disabled={
+                                form.loading
+                            }
                             className="w-full border border-gray-300 px-4 py-3"
                         />
 
                     </div>
 
+
+                    <div className="text-right mb-6">
+
+                        <Link
+                            to="/forgot-password"
+                            className="text-sm text-blue-600 hover:underline"
+                        >
+                            Forgot Password?
+                        </Link>
+
+                    </div>
+
+
                     {form.message && (
+
                         <p
                             role="alert"
                             className="text-red-600 text-center mb-5"
                         >
-                            {form.message}
+                            {
+                                form.message
+                            }
                         </p>
+
                     )}
+
 
                     <button
                         type="submit"
-                        disabled={form.loading}
+                        disabled={
+                            form.loading
+                        }
                         className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-300 text-white py-3"
                     >
+
                         {
                             form.loading
                                 ? 'Logging in...'
                                 : 'Login'
                         }
+
                     </button>
 
                 </form>
+
 
                 <div className="text-center mt-6">
 
@@ -235,5 +345,6 @@ function Login() {
         </main>
     )
 }
+
 
 export default Login

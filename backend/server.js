@@ -6,13 +6,15 @@ const FormData = require("form-data");
 const Mailgun = require("mailgun.js");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-
+const crypto = require("crypto");
 const {
     FieldValue
 } = require("firebase-admin/firestore");
 
 const db = require("./firebaseAdmin");
-
+const {
+    getAuth
+} = require("firebase-admin/auth");
 
 // ====================================================
 // ENVIRONMENT
@@ -670,14 +672,30 @@ app.post(
             const userDocument =
                 result.docs[0];
 
-            const userData =
-                userDocument.data();
+          const userData =
+    userDocument.data();
 
-            const passwordIsCorrect =
-                await bcrypt.compare(
-                    password,
-                    userData.password
-                );
+
+if (
+    typeof userData.password !==
+        "string" ||
+    !userData.password
+) {
+
+    return res
+        .status(401)
+        .json({
+            message:
+                "This account uses Google Sign-In. Please continue with Google."
+        });
+}
+
+
+const passwordIsCorrect =
+    await bcrypt.compare(
+        password,
+        userData.password
+    );
 
             if (
                 !passwordIsCorrect
@@ -752,6 +770,1156 @@ app.post(
     }
 );
 
+// ====================================================
+// HD1 - GOOGLE SIGNUP ONLY
+// ====================================================
+
+app.post(
+    "/auth/google",
+    async function (req, res) {
+
+        const idToken =
+            req.body?.idToken;
+
+
+        if (
+            typeof idToken !== "string" ||
+            !idToken.trim()
+        ) {
+
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "Google authentication token is required."
+                });
+        }
+
+
+        try {
+
+            // --------------------------------------------
+            // VERIFY GOOGLE TOKEN WITH FIREBASE ADMIN
+            // --------------------------------------------
+
+            const decodedToken =
+                await getAuth()
+                    .verifyIdToken(
+                        idToken
+                    );
+
+
+            const email =
+                typeof decodedToken.email === "string"
+                    ? decodedToken.email
+                    : "";
+
+
+            const cleanEmail =
+                email
+                    .trim()
+                    .toLowerCase();
+
+
+            if (
+                !cleanEmail ||
+                decodedToken.email_verified !== true
+            ) {
+
+                return res
+                    .status(401)
+                    .json({
+                        message:
+                            "Google could not verify this email address."
+                    });
+            }
+
+
+            // --------------------------------------------
+            // CHECK WHETHER USER ALREADY EXISTS
+            // --------------------------------------------
+
+            const existingUsers =
+                await db
+                    .collection("users")
+                    .where(
+                        "email",
+                        "==",
+                        cleanEmail
+                    )
+                    .limit(1)
+                    .get();
+
+
+            /*
+             * IMPORTANT:
+             * Google is being used for SIGN UP only.
+             *
+             * If the user already exists, do NOT log them in
+             * using Google.
+             */
+
+            if (
+                !existingUsers.empty
+            ) {
+
+                return res
+                    .status(409)
+                    .json({
+                        message:
+                            "An account with this email already exists. Please login using your email and password."
+                    });
+            }
+
+
+            // --------------------------------------------
+            // GET NAME FROM GOOGLE
+            // --------------------------------------------
+
+            let googleName =
+                typeof decodedToken.name === "string"
+                    ? decodedToken.name.trim()
+                    : "";
+
+
+            if (
+                !googleName
+            ) {
+
+                googleName =
+                    cleanEmail
+                        .split("@")[0];
+            }
+
+
+            // --------------------------------------------
+            // CREATE NEW DEV@DEAKIN USER
+            // --------------------------------------------
+
+            const newUserData = {
+
+                name:
+                    googleName,
+
+                email:
+                    cleanEmail,
+
+                plan:
+                    "free",
+
+                role:
+                    "user",
+
+                authProvider:
+                    "google-signup",
+
+                firebaseUid:
+                    decodedToken.uid,
+
+                profilePhoto:
+                    typeof decodedToken.picture === "string"
+                        ? decodedToken.picture
+                        : null,
+
+                createdAt:
+                    FieldValue.serverTimestamp(),
+
+                lastLoginAt:
+                    FieldValue.serverTimestamp()
+            };
+
+
+            const userReference =
+                await db
+                    .collection("users")
+                    .add(
+                        newUserData
+                    );
+
+
+            const userId =
+                userReference.id;
+
+
+            // --------------------------------------------
+            // CREATE DEV@DEAKIN SESSION TOKEN
+            // --------------------------------------------
+
+            const token =
+                jwt.sign(
+                    {
+                        userId:
+                            userId,
+
+                        email:
+                            cleanEmail
+                    },
+
+                    process.env.JWT_SECRET,
+
+                    {
+                        expiresIn:
+                            "2h"
+                    }
+                );
+
+
+            // --------------------------------------------
+            // SUCCESS
+            // --------------------------------------------
+
+            return res
+                .status(201)
+                .json({
+
+                    message:
+                        "Account created successfully with Google.",
+
+                    token,
+
+                    requiresPasswordSetup:
+                        true,
+
+                    user: {
+
+                        id:
+                            userId,
+
+                        name:
+                            googleName,
+
+                        email:
+                            cleanEmail,
+
+                        plan:
+                            "free",
+
+                        role:
+                            "user"
+                    }
+                });
+
+
+        } catch (error) {
+
+            console.error(
+                "Google signup error:",
+                error
+            );
+
+
+            return res
+                .status(401)
+                .json({
+                    message:
+                        "Google signup could not be verified."
+                });
+        }
+    }
+);
+// ====================================================
+// HD1 - FORGOT PASSWORD / SEND OTP
+// ====================================================
+
+app.post(
+    "/forgot-password/send-otp",
+    async function (req, res) {
+
+        const email =
+            req.body?.email;
+
+        if (
+            typeof email !== "string"
+        ) {
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "Please enter a valid email address."
+                });
+        }
+
+        const cleanEmail =
+            email
+                .trim()
+                .toLowerCase();
+
+        const emailPattern =
+            /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+        if (
+            !cleanEmail ||
+            !emailPattern.test(
+                cleanEmail
+            )
+        ) {
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "Please enter a valid email address."
+                });
+        }
+
+        try {
+
+            const userSnapshot =
+                await db
+                    .collection("users")
+                    .where(
+                        "email",
+                        "==",
+                        cleanEmail
+                    )
+                    .limit(1)
+                    .get();
+
+            /*
+             * Do not reveal whether the
+             * email is registered.
+             */
+            if (
+                userSnapshot.empty
+            ) {
+                return res
+                    .status(200)
+                    .json({
+                        message:
+                            "If an account exists for this email, a verification code has been sent."
+                    });
+            }
+
+            const userDocument =
+                userSnapshot.docs[0];
+
+
+            // --------------------------------------------
+            // CHECK EXISTING OTP
+            // --------------------------------------------
+
+            const existingOtpSnapshot =
+                await db
+                    .collection(
+                        "passwordResetOtps"
+                    )
+                    .where(
+                        "email",
+                        "==",
+                        cleanEmail
+                    )
+                    .get();
+
+
+            let mostRecentCreatedAt =
+                0;
+
+
+            existingOtpSnapshot.docs.forEach(
+                (document) => {
+
+                    const data =
+                        document.data();
+
+                    if (
+                        data.createdAt &&
+                        typeof data.createdAt.toMillis ===
+                            "function"
+                    ) {
+
+                        mostRecentCreatedAt =
+                            Math.max(
+                                mostRecentCreatedAt,
+                                data.createdAt.toMillis()
+                            );
+                    }
+                }
+            );
+
+
+            /*
+             * Only allow one OTP request
+             * every 60 seconds.
+             */
+            if (
+                mostRecentCreatedAt &&
+                Date.now() -
+                    mostRecentCreatedAt <
+                    60 * 1000
+            ) {
+
+                return res
+                    .status(200)
+                    .json({
+                        message:
+                            "If an account exists for this email, a verification code has been sent. Please wait before requesting another code."
+                    });
+            }
+
+
+            // --------------------------------------------
+            // DELETE OLD OTP RECORDS
+            // --------------------------------------------
+
+            if (
+                !existingOtpSnapshot.empty
+            ) {
+
+                const deleteBatch =
+                    db.batch();
+
+
+                existingOtpSnapshot.docs.forEach(
+                    (document) => {
+
+                        deleteBatch.delete(
+                            document.ref
+                        );
+
+                    }
+                );
+
+
+                await deleteBatch.commit();
+            }
+
+
+            // --------------------------------------------
+            // GENERATE SIX-DIGIT OTP
+            // --------------------------------------------
+
+            const otp =
+                crypto
+                    .randomInt(
+                        100000,
+                        1000000
+                    )
+                    .toString();
+
+
+            /*
+             * Hash OTP using HMAC.
+             * The actual OTP is never stored
+             * in Firestore.
+             */
+            const otpHash =
+                crypto
+                    .createHmac(
+                        "sha256",
+                        process.env.JWT_SECRET
+                    )
+                    .update(
+                        `${cleanEmail}:${otp}`
+                    )
+                    .digest(
+                        "hex"
+                    );
+
+
+            const expiresAt =
+                new Date(
+                    Date.now() +
+                    5 * 60 * 1000
+                );
+
+
+            // --------------------------------------------
+            // STORE OTP REQUEST
+            // --------------------------------------------
+
+            const otpReference =
+                await db
+                    .collection(
+                        "passwordResetOtps"
+                    )
+                    .add({
+
+                        userId:
+                            userDocument.id,
+
+                        email:
+                            cleanEmail,
+
+                        otpHash,
+
+                        attempts:
+                            0,
+
+                        used:
+                            false,
+
+                        createdAt:
+                            FieldValue.serverTimestamp(),
+
+                        expiresAt
+                    });
+
+
+            // --------------------------------------------
+            // SEND OTP EMAIL
+            // --------------------------------------------
+
+            try {
+
+                await mg.messages.create(
+                    process.env.MAILGUN_DOMAIN,
+                    {
+
+                        from:
+                            `DEV@Deakin <postmaster@${process.env.MAILGUN_DOMAIN}>`,
+
+                        to: [
+                            cleanEmail
+                        ],
+
+                        subject:
+                            "DEV@Deakin Password Reset Code",
+
+                        text:
+                            `Your DEV@Deakin password reset code is ${otp}. This code expires in 5 minutes.`,
+
+                        html: `
+                            <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+
+                                <h2>
+                                    DEV@Deakin Password Reset
+                                </h2>
+
+                                <p>
+                                    We received a request to reset your DEV@Deakin password.
+                                </p>
+
+                                <p>
+                                    Your verification code is:
+                                </p>
+
+                                <div style="
+                                    font-size: 32px;
+                                    font-weight: bold;
+                                    letter-spacing: 8px;
+                                    margin: 20px 0;
+                                ">
+                                    ${otp}
+                                </div>
+
+                                <p>
+                                    This code expires in
+                                    <strong>5 minutes</strong>.
+                                </p>
+
+                                <p>
+                                    If you did not request a password reset,
+                                    you can safely ignore this email.
+                                </p>
+
+                            </div>
+                        `
+                    }
+                );
+
+
+            } catch (mailError) {
+
+                console.error(
+                    "Password reset email error:",
+                    mailError
+                );
+
+
+                await otpReference.delete();
+
+
+                return res
+                    .status(502)
+                    .json({
+                        message:
+                            "Unable to send the verification email. Please try again."
+                    });
+            }
+
+
+            return res
+                .status(200)
+                .json({
+                    message:
+                        "If an account exists for this email, a verification code has been sent."
+                });
+
+
+        } catch (error) {
+
+            console.error(
+                "Send password reset OTP error:",
+                error
+            );
+
+
+            return res
+                .status(500)
+                .json({
+                    message:
+                        "Unable to process the password reset request."
+                });
+        }
+    }
+);
+
+
+// ====================================================
+// HD1 - FORGOT PASSWORD / VERIFY OTP
+// ====================================================
+
+app.post(
+    "/forgot-password/verify-otp",
+    async function (req, res) {
+
+        const email =
+            req.body?.email;
+
+        const otp =
+            req.body?.otp;
+
+
+        if (
+            typeof email !== "string" ||
+            typeof otp !== "string"
+        ) {
+
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "Please enter your email and verification code."
+                });
+        }
+
+
+        const cleanEmail =
+            email
+                .trim()
+                .toLowerCase();
+
+
+        const cleanOtp =
+            otp.trim();
+
+
+        if (
+            !/^\d{6}$/.test(
+                cleanOtp
+            )
+        ) {
+
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "The verification code must contain 6 digits."
+                });
+        }
+
+
+        try {
+
+            const otpSnapshot =
+                await db
+                    .collection(
+                        "passwordResetOtps"
+                    )
+                    .where(
+                        "email",
+                        "==",
+                        cleanEmail
+                    )
+                    .get();
+
+
+            if (
+                otpSnapshot.empty
+            ) {
+
+                return res
+                    .status(400)
+                    .json({
+                        message:
+                            "The verification code is invalid or has expired."
+                    });
+            }
+
+
+            const otpDocument =
+                otpSnapshot.docs[0];
+
+
+            const otpData =
+                otpDocument.data();
+
+
+            // --------------------------------------------
+            // CHECK IF ALREADY USED
+            // --------------------------------------------
+
+            if (
+                otpData.used
+            ) {
+
+                return res
+                    .status(400)
+                    .json({
+                        message:
+                            "This verification code has already been used."
+                    });
+            }
+
+
+            // --------------------------------------------
+            // CHECK EXPIRY
+            // --------------------------------------------
+
+            const expiryTime =
+                otpData.expiresAt &&
+                typeof otpData.expiresAt.toMillis ===
+                    "function"
+                    ? otpData.expiresAt.toMillis()
+                    : new Date(
+                        otpData.expiresAt
+                    ).getTime();
+
+
+            if (
+                !expiryTime ||
+                Date.now() >
+                    expiryTime
+            ) {
+
+                await otpDocument.ref.delete();
+
+
+                return res
+                    .status(400)
+                    .json({
+                        message:
+                            "The verification code has expired. Please request a new code."
+                    });
+            }
+
+
+            // --------------------------------------------
+            // CHECK NUMBER OF ATTEMPTS
+            // --------------------------------------------
+
+            const attempts =
+                Number(
+                    otpData.attempts || 0
+                );
+
+
+            if (
+                attempts >= 5
+            ) {
+
+                await otpDocument.ref.delete();
+
+
+                return res
+                    .status(429)
+                    .json({
+                        message:
+                            "Too many incorrect attempts. Please request a new code."
+                    });
+            }
+
+
+            // --------------------------------------------
+            // HASH SUPPLIED OTP
+            // --------------------------------------------
+
+            const suppliedOtpHash =
+                crypto
+                    .createHmac(
+                        "sha256",
+                        process.env.JWT_SECRET
+                    )
+                    .update(
+                        `${cleanEmail}:${cleanOtp}`
+                    )
+                    .digest(
+                        "hex"
+                    );
+
+
+            const storedBuffer =
+                Buffer.from(
+                    otpData.otpHash,
+                    "hex"
+                );
+
+
+            const suppliedBuffer =
+                Buffer.from(
+                    suppliedOtpHash,
+                    "hex"
+                );
+
+
+            const otpMatches =
+                storedBuffer.length ===
+                    suppliedBuffer.length &&
+                crypto.timingSafeEqual(
+                    storedBuffer,
+                    suppliedBuffer
+                );
+
+
+            if (
+                !otpMatches
+            ) {
+
+                await otpDocument.ref.update({
+
+                    attempts:
+                        FieldValue.increment(1)
+
+                });
+
+
+                return res
+                    .status(400)
+                    .json({
+                        message:
+                            "The verification code is incorrect."
+                    });
+            }
+
+
+            // --------------------------------------------
+            // OTP VERIFIED
+            // --------------------------------------------
+
+            await otpDocument.ref.update({
+
+                used:
+                    true,
+
+                verifiedAt:
+                    FieldValue.serverTimestamp()
+
+            });
+
+
+            /*
+             * Create a short-lived token that can
+             * only be used for password reset.
+             */
+            const resetToken =
+                jwt.sign(
+                    {
+
+                        purpose:
+                            "password-reset",
+
+                        userId:
+                            otpData.userId,
+
+                        email:
+                            cleanEmail
+
+                    },
+
+                    process.env.JWT_SECRET,
+
+                    {
+                        expiresIn:
+                            "10m"
+                    }
+                );
+
+
+            return res
+                .status(200)
+                .json({
+
+                    message:
+                        "Verification successful.",
+
+                    resetToken
+
+                });
+
+
+        } catch (error) {
+
+            console.error(
+                "Verify password reset OTP error:",
+                error
+            );
+
+
+            return res
+                .status(500)
+                .json({
+                    message:
+                        "Unable to verify the code."
+                });
+        }
+    }
+);
+
+
+// ====================================================
+// HD1 - FORGOT PASSWORD / RESET PASSWORD
+// ====================================================
+
+app.post(
+    "/forgot-password/reset",
+    async function (req, res) {
+
+        const resetToken =
+            req.body?.resetToken;
+
+        const newPassword =
+            req.body?.newPassword;
+
+        const confirmPassword =
+            req.body?.confirmPassword;
+
+
+        if (
+            typeof resetToken !== "string" ||
+            typeof newPassword !== "string" ||
+            typeof confirmPassword !== "string"
+        ) {
+
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "Please complete all password reset fields."
+                });
+        }
+
+
+        // --------------------------------------------
+        // PASSWORD VALIDATION
+        // --------------------------------------------
+
+        if (
+            newPassword.length < 6
+        ) {
+
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "Password must contain at least 6 characters."
+                });
+        }
+
+
+        if (
+            newPassword !==
+            confirmPassword
+        ) {
+
+            return res
+                .status(400)
+                .json({
+                    message:
+                        "The passwords do not match."
+                });
+        }
+
+
+        try {
+
+            // --------------------------------------------
+            // VERIFY RESET TOKEN
+            // --------------------------------------------
+
+            const decoded =
+                jwt.verify(
+                    resetToken,
+                    process.env.JWT_SECRET
+                );
+
+
+            if (
+                decoded.purpose !==
+                    "password-reset" ||
+                !decoded.userId ||
+                !decoded.email
+            ) {
+
+                return res
+                    .status(401)
+                    .json({
+                        message:
+                            "The password reset session is invalid."
+                    });
+            }
+
+
+            const userReference =
+                db
+                    .collection("users")
+                    .doc(
+                        decoded.userId
+                    );
+
+
+            const userDocument =
+                await userReference.get();
+
+
+            if (
+                !userDocument.exists
+            ) {
+
+                return res
+                    .status(404)
+                    .json({
+                        message:
+                            "User account could not be found."
+                    });
+            }
+
+
+            const userData =
+                userDocument.data();
+
+
+            if (
+                userData.email !==
+                decoded.email
+            ) {
+
+                return res
+                    .status(401)
+                    .json({
+                        message:
+                            "The password reset session is invalid."
+                    });
+            }
+
+
+            // --------------------------------------------
+            // HASH NEW PASSWORD
+            // --------------------------------------------
+
+            const hashedPassword =
+                await bcrypt.hash(
+                    newPassword,
+                    10
+                );
+
+
+            // --------------------------------------------
+            // UPDATE FIRESTORE USER
+            // --------------------------------------------
+
+            await userReference.update({
+
+                password:
+                    hashedPassword,
+
+                passwordUpdatedAt:
+                    FieldValue.serverTimestamp()
+
+            });
+
+
+            // --------------------------------------------
+            // DELETE PASSWORD RESET OTP RECORDS
+            // --------------------------------------------
+
+            const otpSnapshot =
+                await db
+                    .collection(
+                        "passwordResetOtps"
+                    )
+                    .where(
+                        "email",
+                        "==",
+                        decoded.email
+                    )
+                    .get();
+
+
+            if (
+                !otpSnapshot.empty
+            ) {
+
+                const deleteBatch =
+                    db.batch();
+
+
+                otpSnapshot.docs.forEach(
+                    (document) => {
+
+                        deleteBatch.delete(
+                            document.ref
+                        );
+
+                    }
+                );
+
+
+                await deleteBatch.commit();
+            }
+
+
+            return res
+                .status(200)
+                .json({
+                    message:
+                        "Your password has been reset successfully. You can now log in with your new password."
+                });
+
+
+        } catch (error) {
+
+            if (
+                error.name ===
+                    "TokenExpiredError"
+            ) {
+
+                return res
+                    .status(401)
+                    .json({
+                        message:
+                            "Your password reset session has expired. Please request a new code."
+                    });
+            }
+
+
+            if (
+                error.name ===
+                    "JsonWebTokenError"
+            ) {
+
+                return res
+                    .status(401)
+                    .json({
+                        message:
+                            "The password reset session is invalid."
+                    });
+            }
+
+
+            console.error(
+                "Reset password error:",
+                error
+            );
+
+
+            return res
+                .status(500)
+                .json({
+                    message:
+                        "Unable to reset your password."
+                });
+        }
+    }
+);
 
 // ====================================================
 // UPGRADE PLAN

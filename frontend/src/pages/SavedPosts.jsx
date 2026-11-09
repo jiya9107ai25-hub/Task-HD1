@@ -9,7 +9,7 @@ import {
 
 import {
     useAuth
-} from '../context/AuthContext.jsx'
+} from '../context/AuthContext'
 
 
 function SavedPosts() {

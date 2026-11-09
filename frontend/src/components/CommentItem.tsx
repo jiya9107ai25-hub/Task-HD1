@@ -2,20 +2,55 @@ import {
     useState
 } from 'react'
 
+import type {
+    FormEvent
+} from 'react'
+
+import type {
+    CommentData,
+    User
+} from '../types'
+
+
+interface CommentItemProps {
+    comment: CommentData
+
+    replies: CommentData[]
+
+    currentUser: User | null
+
+    onReply: (
+        parentCommentId: string,
+        content: string
+    ) => Promise<boolean>
+
+    submitting: boolean
+}
+
+
 function CommentItem({
     comment,
     replies,
     currentUser,
     onReply,
     submitting
-}) {
-    const [showReplyForm, setShowReplyForm] =
-        useState(false)
+}: CommentItemProps) {
 
-    const [replyText, setReplyText] =
-        useState('')
+    const [
+        showReplyForm,
+        setShowReplyForm
+    ] = useState<boolean>(false)
 
-    function formatDate(dateValue) {
+    const [
+        replyText,
+        setReplyText
+    ] = useState<string>('')
+
+
+    function formatDate(
+        dateValue: string | null
+    ): string {
+
         if (!dateValue) {
             return 'Just now'
         }
@@ -43,9 +78,11 @@ function CommentItem({
         )
     }
 
+
     async function handleReplySubmit(
-        event
-    ) {
+        event: FormEvent<HTMLFormElement>
+    ): Promise<void> {
+
         event.preventDefault()
 
         const cleanReply =
@@ -67,7 +104,9 @@ function CommentItem({
         }
     }
 
+
     return (
+
         <div className="border border-gray-200 rounded-lg p-5 bg-white">
 
             <div className="flex justify-between gap-4 mb-2">
@@ -82,12 +121,15 @@ function CommentItem({
                     </span>
 
                     {comment.optimistic && (
+
                         <span className="ml-2 text-xs text-blue-600">
                             Sending...
                         </span>
+
                     )}
 
                 </div>
+
 
                 <span className="text-xs text-gray-500">
                     {
@@ -118,12 +160,15 @@ function CommentItem({
                     }
                     className="mt-3 text-sm text-blue-600 hover:underline"
                 >
+
                     {
                         showReplyForm
                             ? 'Cancel reply'
                             : 'Reply'
                     }
+
                 </button>
+
             )}
 
 
@@ -137,8 +182,8 @@ function CommentItem({
                 >
 
                     <textarea
-                        rows="3"
-                        maxLength="500"
+                        rows={3}
+                        maxLength={500}
                         value={
                             replyText
                         }
@@ -154,6 +199,7 @@ function CommentItem({
                         placeholder="Write a reply..."
                         className="w-full border border-gray-300 rounded px-3 py-2 resize-y"
                     />
+
 
                     <div className="flex justify-end mt-2">
 
@@ -171,6 +217,7 @@ function CommentItem({
                     </div>
 
                 </form>
+
             )}
 
 
@@ -191,44 +238,57 @@ function CommentItem({
                                 <div className="flex justify-between gap-4 mb-2">
 
                                     <span className="font-medium text-gray-900">
+
                                         {
                                             reply.authorName ||
                                             'DEV@Deakin User'
                                         }
+
                                     </span>
 
+
                                     <span className="text-xs text-gray-500">
+
                                         {
                                             formatDate(
                                                 reply.createdAt
                                             )
                                         }
+
                                     </span>
 
                                 </div>
 
+
                                 <p className="text-gray-700 whitespace-pre-wrap">
+
                                     {
                                         reply.content
                                     }
+
                                 </p>
+
 
                                 {reply.optimistic && (
 
                                     <span className="text-xs text-blue-600">
                                         Sending...
                                     </span>
+
                                 )}
 
                             </div>
+
                         )
                     )}
 
                 </div>
+
             )}
 
         </div>
     )
 }
+
 
 export default CommentItem
