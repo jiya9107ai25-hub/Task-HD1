@@ -1,3 +1,4 @@
+
 import {
     useEffect,
     useState
@@ -16,141 +17,80 @@ import CommentSection from '../components/CommentSection'
 
 function PostDetails() {
 
-    const {
-        postId
-    } = useParams()
+    const { postId } = useParams()
+
+    const { user, token } = useAuth()
+
+    const [post, setPost] = useState(null)
+    const [loading, setLoading] = useState(true)
+    const [message, setMessage] = useState('')
+
+    const [isSaved, setIsSaved] = useState(false)
+    const [bookmarkLoading, setBookmarkLoading] = useState(false)
+    const [bookmarkMessage, setBookmarkMessage] = useState('')
 
 
-    const {
-        user,
-        token
-    } = useAuth()
-
-
-    const [
-        post,
-        setPost
-    ] = useState(null)
-
-
-    const [
-        loading,
-        setLoading
-    ] = useState(true)
-
-
-    const [
-        message,
-        setMessage
-    ] = useState('')
-
-
-    const [
-        isSaved,
-        setIsSaved
-    ] = useState(false)
-
-
-    const [
-        bookmarkLoading,
-        setBookmarkLoading
-    ] = useState(false)
-
-
-    const [
-        bookmarkMessage,
-        setBookmarkMessage
-    ] = useState('')
-
+    // ----------------------------------------
+    // LOAD POST AND CHECK BOOKMARK
+    // ----------------------------------------
 
     useEffect(() => {
         loadPost()
 
-        if (
-            user &&
-            token
-        ) {
+        if (user && token) {
             checkBookmark()
+        } else {
+            setIsSaved(false)
         }
 
-    }, [
-        postId,
-        token,
-        user
-    ])
+    }, [postId, token, user])
 
+
+    // ----------------------------------------
+    // LOAD POST DETAILS
+    // ----------------------------------------
 
     async function loadPost() {
 
         try {
-
             setLoading(true)
             setMessage('')
 
-
             const headers = {}
 
-
             if (token) {
-
-                headers.Authorization =
-                    `Bearer ${token}`
-
+                headers.Authorization = `Bearer ${token}`
             }
 
+            const response = await fetch(
+                `${import.meta.env.VITE_API_URL}/posts/${postId}`,
+                {
+                    method: 'GET',
+                    headers
+                }
+            )
 
-            const response =
-                await fetch(
-                    `${import.meta.env.VITE_API_URL}/posts/${postId}`,
-                    {
-                        method: 'GET',
-                        headers
-                    }
-                )
-
-
-            const data =
-                await response.json()
-
+            const data = await response.json()
 
             if (!response.ok) {
-
                 setPost(null)
-
                 setMessage(
-                    data.message ||
-                    'Unable to load the post.'
+                    data.message || 'Unable to load the post.'
                 )
-
                 return
             }
 
-
-            setPost(
-                data.post
-            )
-
+            setPost(data.post)
 
         } catch (error) {
 
-            console.error(
-                'Post details error:',
-                error
-            )
-
+            console.error('Post details error:', error)
 
             setPost(null)
-
-
-            setMessage(
-                'Unable to connect to the server.'
-            )
-
+            setMessage('Unable to connect to the server.')
 
         } finally {
-
             setLoading(false)
-
         }
     }
 
@@ -163,57 +103,35 @@ function PostDetails() {
 
         try {
 
-            const response =
-                await fetch(
-                    `${import.meta.env.VITE_API_URL}/bookmarks`,
-                    {
-                        method:
-                            'GET',
-
-                        headers: {
-                            Authorization:
-                                `Bearer ${token}`
-                        }
+            const response = await fetch(
+                `${import.meta.env.VITE_API_URL}/bookmarks`,
+                {
+                    method: 'GET',
+                    headers: {
+                        Authorization: `Bearer ${token}`
                     }
-                )
+                }
+            )
 
-
-            const data =
-                await response.json()
-
+            const data = await response.json()
 
             if (!response.ok) {
                 return
             }
 
+            const savedPosts = Array.isArray(data.posts)
+                ? data.posts
+                : []
 
-            const savedPosts =
-                Array.isArray(
-                    data.posts
-                )
-                    ? data.posts
-                    : []
-
-
-            const alreadySaved =
-                savedPosts.some(
-                    (savedPost) =>
-                        savedPost.id ===
-                        postId
-                )
-
-
-            setIsSaved(
-                alreadySaved
+            const alreadySaved = savedPosts.some(
+                (savedPost) => savedPost.id === postId
             )
 
+            setIsSaved(alreadySaved)
 
         } catch (error) {
 
-            console.error(
-                'Check bookmark error:',
-                error
-            )
+            console.error('Check bookmark error:', error)
 
         }
     }
@@ -225,59 +143,39 @@ function PostDetails() {
 
     async function handleBookmark() {
 
-        if (
-            !user ||
-            !token
-        ) {
+        if (!user || !token) {
 
-            setBookmarkMessage(
-                'Please login to save posts.'
-            )
-
+            setBookmarkMessage('Please login to save posts.')
             return
         }
-
 
         try {
 
             setBookmarkLoading(true)
             setBookmarkMessage('')
 
+            const method = isSaved ? 'DELETE' : 'POST'
 
-            const method =
-                isSaved
-                    ? 'DELETE'
-                    : 'POST'
-
-
-            const response =
-                await fetch(
-                    `${import.meta.env.VITE_API_URL}/bookmarks/${postId}`,
-                    {
-                        method,
-
-                        headers: {
-                            Authorization:
-                                `Bearer ${token}`
-                        }
+            const response = await fetch(
+                `${import.meta.env.VITE_API_URL}/bookmarks/${postId}`,
+                {
+                    method,
+                    headers: {
+                        Authorization: `Bearer ${token}`
                     }
-                )
+                }
+            )
 
-
-            const data =
-                await response.json()
-
+            const data = await response.json()
 
             if (!response.ok) {
 
                 setBookmarkMessage(
-                    data.message ||
-                    'Unable to update saved post.'
+                    data.message || 'Unable to update saved post.'
                 )
 
                 return
             }
-
 
             if (isSaved) {
 
@@ -294,22 +192,15 @@ function PostDetails() {
                 setBookmarkMessage(
                     'Post saved successfully.'
                 )
-
             }
-
 
         } catch (error) {
 
-            console.error(
-                'Bookmark error:',
-                error
-            )
-
+            console.error('Bookmark error:', error)
 
             setBookmarkMessage(
                 'Unable to update saved post.'
             )
-
 
         } finally {
 
@@ -319,85 +210,60 @@ function PostDetails() {
     }
 
 
-    function formatDate(
-        dateValue
-    ) {
+    // ----------------------------------------
+    // FORMAT DATE
+    // ----------------------------------------
+
+    function formatDate(dateValue) {
 
         if (!dateValue) {
-
             return 'Date unavailable'
-
         }
 
+        const date = new Date(dateValue)
 
-        const date =
-            new Date(
-                dateValue
-            )
-
-
-        if (
-            Number.isNaN(
-                date.getTime()
-            )
-        ) {
-
+        if (Number.isNaN(date.getTime())) {
             return 'Date unavailable'
-
         }
-
 
         return date.toLocaleDateString(
             undefined,
             {
-                day:
-                    'numeric',
-
-                month:
-                    'short',
-
-                year:
-                    'numeric'
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
             }
         )
     }
 
 
+    // ----------------------------------------
+    // GET POST CONTENT
+    // ----------------------------------------
+
     function getPostContent() {
 
         if (!post) {
-
             return ''
-
         }
 
-
-        if (
-            post.postType ===
-            'article'
-        ) {
-
-            return (
-                post.articleText ||
-                ''
-            )
-
+        if (post.postType === 'article') {
+            return post.articleText || ''
         }
 
-
-        return (
-            post.description ||
-            ''
-        )
+        return post.description || ''
     }
 
+
+    // ----------------------------------------
+    // PAGE UI
+    // ----------------------------------------
 
     return (
 
         <main className="min-h-[80vh] bg-gray-50 px-6 py-12">
 
             <div className="max-w-4xl mx-auto">
-
 
                 {/* BACK BUTTON */}
 
@@ -426,8 +292,7 @@ function PostDetails() {
 
                 {/* ERROR */}
 
-                {!loading &&
-                    message && (
+                {!loading && message && (
 
                     <div className="bg-white border border-red-300 rounded-lg p-10 mt-6 text-center">
 
@@ -446,9 +311,7 @@ function PostDetails() {
 
                 {/* POST */}
 
-                {!loading &&
-                    !message &&
-                    post && (
+                {!loading && !message && post && (
 
                     <article className="bg-white border border-gray-300 rounded-lg shadow-sm p-8 mt-6">
 
@@ -461,25 +324,20 @@ function PostDetails() {
 
                                 <span className="bg-gray-100 text-gray-700 text-sm font-semibold px-3 py-1 rounded-full uppercase">
 
-                                    {
-                                        post.postType
-                                    }
+                                    {post.postType}
 
                                 </span>
 
 
                                 <span
                                     className={`text-sm font-semibold px-3 py-1 rounded-full uppercase ${
-                                        post.plan ===
-                                        'paid'
+                                        post.plan === 'paid'
                                             ? 'bg-blue-100 text-blue-700'
                                             : 'bg-green-100 text-green-700'
                                     }`}
                                 >
 
-                                    {
-                                        post.plan
-                                    }
+                                    {post.plan}
 
                                 </span>
 
@@ -488,11 +346,7 @@ function PostDetails() {
 
                             <span className="text-sm text-gray-500">
 
-                                {
-                                    formatDate(
-                                        post.createdAt
-                                    )
-                                }
+                                {formatDate(post.createdAt)}
 
                             </span>
 
@@ -503,24 +357,18 @@ function PostDetails() {
 
                         <h1 className="text-3xl font-bold mb-4">
 
-                            {
-                                post.title
-                            }
+                            {post.title}
 
                         </h1>
 
 
                         {/* ARTICLE ABSTRACT */}
 
-                        {post.postType ===
-                            'article' &&
-                            post.abstract && (
+                        {post.postType === 'article' && post.abstract && (
 
                             <p className="text-gray-600 italic mb-5">
 
-                                {
-                                    post.abstract
-                                }
+                                {post.abstract}
 
                             </p>
 
@@ -531,40 +379,30 @@ function PostDetails() {
 
                         <p className="text-gray-700 whitespace-pre-wrap leading-7 mb-6">
 
-                            {
-                                getPostContent()
-                            }
+                            {getPostContent()}
 
                         </p>
 
 
                         {/* TAGS */}
 
-                        {Array.isArray(
-                            post.tags
-                        ) &&
-                            post.tags.length >
-                            0 && (
+                        {Array.isArray(post.tags) &&
+                            post.tags.length > 0 && (
 
                             <div className="flex flex-wrap gap-2 mb-6">
 
-                                {post.tags.map(
-                                    (
-                                        tag,
-                                        index
-                                    ) => (
+                                {post.tags.map((tag, index) => (
 
-                                        <span
-                                            key={`${post.id}-${tag}-${index}`}
-                                            className="bg-gray-100 text-gray-700 text-sm px-3 py-1 rounded"
-                                        >
+                                    <span
+                                        key={`${post.id}-${tag}-${index}`}
+                                        className="bg-gray-100 text-gray-700 text-sm px-3 py-1 rounded"
+                                    >
 
-                                            #{tag}
+                                        #{tag}
 
-                                        </span>
+                                    </span>
 
-                                    )
-                                )}
+                                ))}
 
                             </div>
 
@@ -579,10 +417,7 @@ function PostDetails() {
 
                             <span className="font-medium text-gray-700">
 
-                                {
-                                    post.authorName ||
-                                    'DEV@Deakin User'
-                                }
+                                {post.authorName || 'DEV@Deakin User'}
 
                             </span>
 
@@ -597,12 +432,8 @@ function PostDetails() {
 
                                 <button
                                     type="button"
-                                    onClick={
-                                        handleBookmark
-                                    }
-                                    disabled={
-                                        bookmarkLoading
-                                    }
+                                    onClick={handleBookmark}
+                                    disabled={bookmarkLoading}
                                     className={`px-5 py-2 rounded font-medium ${
                                         isSaved
                                             ? 'border border-red-400 text-red-600 hover:bg-red-50'
@@ -610,12 +441,11 @@ function PostDetails() {
                                     }`}
                                 >
 
-                                    {
-                                        bookmarkLoading
-                                            ? 'Updating...'
-                                            : isSaved
-                                                ? 'Remove Saved Post'
-                                                : 'Save Post'
+                                    {bookmarkLoading
+                                        ? 'Updating...'
+                                        : isSaved
+                                            ? 'Remove Saved Post'
+                                            : 'Save Post'
                                     }
 
                                 </button>
@@ -636,24 +466,14 @@ function PostDetails() {
 
                                 <p
                                     className={`mt-3 text-sm ${
-                                        bookmarkMessage
-                                            .toLowerCase()
-                                            .includes(
-                                                'unable'
-                                            ) ||
-                                        bookmarkMessage
-                                            .toLowerCase()
-                                            .includes(
-                                                'login'
-                                            )
+                                        bookmarkMessage.toLowerCase().includes('unable') ||
+                                        bookmarkMessage.toLowerCase().includes('login')
                                             ? 'text-red-600'
                                             : 'text-green-600'
                                     }`}
                                 >
 
-                                    {
-                                        bookmarkMessage
-                                    }
+                                    {bookmarkMessage}
 
                                 </p>
 
@@ -662,12 +482,10 @@ function PostDetails() {
                         </div>
 
 
-                        {/* HD FEATURE - COMMENTS */}
+                        {/* COMMENTS - NORMAL USER DISCUSSION */}
 
                         <CommentSection
-                            postId={
-                                post.id
-                            }
+                            postId={post.id}
                         />
 
 

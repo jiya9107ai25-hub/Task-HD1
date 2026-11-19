@@ -1,18 +1,19 @@
+
 import {
     createContext,
     useContext,
     useState
-} from 'react'
+} from "react";
 
 import type {
     ReactNode
-} from 'react'
+} from "react";
 
 import type {
     User,
     UserPlan,
     UserRole
-} from '../types'
+} from "../types";
 
 
 // ====================================================
@@ -20,31 +21,31 @@ import type {
 // ====================================================
 
 interface AuthContextValue {
-    user: User | null
+    user: User | null;
 
-    token: string | null
+    token: string | null;
 
-    isLoggedIn: boolean
+    isLoggedIn: boolean;
 
-    plan: UserPlan
+    plan: UserPlan;
 
-    role: UserRole
+    role: UserRole;
 
     login: (
         userData: User,
         token: string
-    ) => void
+    ) => void;
 
-    logout: () => void
+    logout: () => void;
 
     updateUser: (
         userData: User
-    ) => void
+    ) => void;
 }
 
 
 interface AuthProviderProps {
-    children: ReactNode
+    children: ReactNode;
 }
 
 
@@ -53,9 +54,7 @@ interface AuthProviderProps {
 // ====================================================
 
 const AuthContext =
-    createContext<AuthContextValue | null>(
-        null
-    )
+    createContext<AuthContextValue | null>(null);
 
 
 // ====================================================
@@ -66,44 +65,45 @@ export function AuthProvider({
     children
 }: AuthProviderProps) {
 
-    const [
-        user,
-        setUser
-    ] = useState<User | null>(
-        () => {
+    // ====================================================
+    // CURRENT USER
+    // ====================================================
 
-            const storedUser =
-                localStorage.getItem(
-                    'user'
-                )
+    const [user, setUser] = useState<User | null>(() => {
 
+        const storedUser = localStorage.getItem("user");
 
-            if (!storedUser) {
-                return null
-            }
-
-
-            try {
-
-                const parsedUser:
-                    User =
-                    JSON.parse(
-                        storedUser
-                    )
-
-                return parsedUser
-
-            } catch (error) {
-
-                console.error(
-                    'Unable to parse stored user:',
-                    error
-                )
-
-                return null
-            }
+        if (!storedUser) {
+            return null;
         }
-    )
+
+        try {
+
+            const parsedUser: User = JSON.parse(storedUser);
+
+            return parsedUser;
+
+        } catch (error) {
+
+            console.error(
+                "Unable to parse stored user:",
+                error
+            );
+
+            return null;
+        }
+    });
+
+
+    // ====================================================
+    // CURRENT AUTHENTICATION TOKEN
+    // ====================================================
+
+    const [token, setToken] = useState<string | null>(() => {
+
+        return localStorage.getItem("token");
+
+    });
 
 
     // ====================================================
@@ -112,30 +112,23 @@ export function AuthProvider({
 
     function login(
         userData: User,
-        token: string
+        newToken: string
     ): void {
 
-        setUser(
-            userData
-        )
+        setUser(userData);
 
+        setToken(newToken);
 
         localStorage.setItem(
-            'user',
-            JSON.stringify(
-                userData
-            )
-        )
+            "user",
+            JSON.stringify(userData)
+        );
 
+        localStorage.setItem(
+            "token",
+            newToken
+        );
 
-        if (token) {
-
-            localStorage.setItem(
-                'token',
-                token
-            )
-
-        }
     }
 
 
@@ -143,22 +136,16 @@ export function AuthProvider({
     // LOGOUT
     // ====================================================
 
-    function logout():
-        void {
+    function logout(): void {
 
-        localStorage.removeItem(
-            'token'
-        )
+        localStorage.removeItem("token");
 
+        localStorage.removeItem("user");
 
-        localStorage.removeItem(
-            'user'
-        )
+        setToken(null);
 
+        setUser(null);
 
-        setUser(
-            null
-        )
     }
 
 
@@ -170,74 +157,55 @@ export function AuthProvider({
         userData: User
     ): void {
 
-        setUser(
-            userData
-        )
-
+        setUser(userData);
 
         localStorage.setItem(
-            'user',
-            JSON.stringify(
-                userData
-            )
-        )
+            "user",
+            JSON.stringify(userData)
+        );
+
     }
-
-
-    // ====================================================
-    // CURRENT TOKEN
-    // ====================================================
-
-    const token:
-        string | null =
-        localStorage.getItem(
-            'token'
-        )
 
 
     // ====================================================
     // CONTEXT VALUE
     // ====================================================
 
-    const value:
-        AuthContextValue = {
+    const value: AuthContextValue = {
 
         user,
 
         token,
 
-        isLoggedIn:
-            Boolean(user),
+        isLoggedIn: Boolean(user && token),
 
-        plan:
-            user?.plan ||
-            'free',
+        plan: user?.plan || "free",
 
-        role:
-            user?.role ||
-            'user',
+        role: user?.role || "user",
 
         login,
 
         logout,
 
         updateUser
-    }
 
+    };
+
+
+    // ====================================================
+    // AUTH PROVIDER
+    // ====================================================
 
     return (
 
-        <AuthContext.Provider
-            value={
-                value
-            }
-        >
+        <AuthContext.Provider value={value}>
 
             {children}
 
         </AuthContext.Provider>
 
-    )
+    );
+
 }
 
 
@@ -245,23 +213,18 @@ export function AuthProvider({
 // CUSTOM AUTH HOOK
 // ====================================================
 
-export function useAuth():
-    AuthContextValue {
+export function useAuth(): AuthContextValue {
 
-    const context =
-        useContext(
-            AuthContext
-        )
-
+    const context = useContext(AuthContext);
 
     if (!context) {
 
         throw new Error(
-            'useAuth must be used inside AuthProvider'
-        )
+            "useAuth must be used inside AuthProvider"
+        );
 
     }
 
+    return context;
 
-    return context
 }

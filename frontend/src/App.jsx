@@ -1,204 +1,86 @@
-import {
-    Routes,
-    Route
-} from 'react-router-dom'
 
-import Header
-    from './components/Header.jsx'
+import { Routes, Route } from 'react-router-dom'
 
-import Home
-    from './pages/Home.jsx'
+import Header from './components/Header.jsx'
+import DevBuddy from './components/DevBuddy.jsx'
 
-import Login
-    from './pages/Login.jsx'
+import Home from './pages/Home.jsx'
+import Login from './pages/Login.jsx'
+import ForgotPassword from './pages/ForgotPassword.jsx'
+import Signup from './pages/Signup.jsx'
+import Pricing from './pages/Pricing.jsx'
+import Post from './pages/Post.jsx'
+import BrowsePosts from './pages/BrowsePosts.jsx'
+import PostDetails from './pages/PostDetails.jsx'
+import SavedPosts from './pages/SavedPosts.jsx'
+import AdminDashboard from './pages/AdminDashboard'
 
-import ForgotPassword
-    from './pages/ForgotPassword.jsx'
-
-import Signup
-    from './pages/Signup.jsx'
-
-import Pricing
-    from './pages/Pricing.jsx'
-
-import Post
-    from './pages/Post.jsx'
-
-import BrowsePosts
-    from './pages/BrowsePosts.jsx'
-
-import PostDetails
-    from './pages/PostDetails.jsx'
-
-import SavedPosts
-    from './pages/SavedPosts.jsx'
-
-import AdminDashboard
-    from './pages/AdminDashboard'
-
-import {
-    useAuth
-} from './context/AuthContext'
-
+import { useAuth } from './context/AuthContext'
 
 function App() {
-
-    const {
-        user,
-        updateUser
-    } = useAuth()
-
+    const { user, updateUser } = useAuth()
 
     return (
-
         <>
-
+            {/* GLOBAL HEADER */}
             <Header />
 
-
+            {/* APPLICATION ROUTES */}
             <Routes>
+                {/* HOME */}
+                <Route path="/" element={<Home />} />
 
+                {/* AUTHENTICATION */}
+                <Route path="/login" element={<Login />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/signup" element={<Signup />} />
 
-                {/* ====================================
-                    HOME
-                ==================================== */}
-
-                <Route
-                    path="/"
-                    element={
-                        <Home />
-                    }
-                />
-
-
-                {/* ====================================
-                    LOGIN
-                ==================================== */}
-
-                <Route
-                    path="/login"
-                    element={
-                        <Login />
-                    }
-                />
-
-
-                {/* ====================================
-                    FORGOT PASSWORD / OTP
-                ==================================== */}
-
-                <Route
-                    path="/forgot-password"
-                    element={
-                        <ForgotPassword />
-                    }
-                />
-
-
-                {/* ====================================
-                    SIGN UP
-                ==================================== */}
-
-                <Route
-                    path="/signup"
-                    element={
-                        <Signup />
-                    }
-                />
-
-
-                {/* ====================================
-                    PRICING
-                ==================================== */}
-
+                {/* PRICING */}
                 <Route
                     path="/pricing"
                     element={
                         <Pricing
-                            user={
-                                user
-                            }
-                            onUserUpdate={
-                                updateUser
-                            }
+                            user={user}
+                            onUserUpdate={updateUser}
                         />
                     }
                 />
 
-
-                {/* ====================================
-                    CREATE POST
-                ==================================== */}
-
+                {/* CREATE POST */}
                 <Route
                     path="/post"
-                    element={
-                        <Post
-                            user={
-                                user
-                            }
-                        />
-                    }
+                    element={<Post user={user} />}
                 />
 
-
-                {/* ====================================
-                    BROWSE POSTS
-                ==================================== */}
-
+                {/* BROWSE POSTS */}
                 <Route
                     path="/browse-posts"
-                    element={
-                        <BrowsePosts />
-                    }
+                    element={<BrowsePosts />}
                 />
 
-
-                {/* ====================================
-                    HD FEATURE:
-                    POST DETAILS + COMMENTS
-                ==================================== */}
-
+                {/* POST DETAILS */}
                 <Route
                     path="/posts/:postId"
-                    element={
-                        <PostDetails />
-                    }
+                    element={<PostDetails />}
                 />
 
-
-                {/* ====================================
-                    HD FEATURE:
-                    SAVED POSTS
-                ==================================== */}
-
+                {/* SAVED POSTS */}
                 <Route
                     path="/saved-posts"
-                    element={
-                        <SavedPosts />
-                    }
+                    element={<SavedPosts />}
                 />
 
-
-                {/* ====================================
-                    HD FEATURE:
-                    ADMIN DASHBOARD
-                ==================================== */}
-
+                {/* ADMIN DASHBOARD */}
                 <Route
                     path="/admin"
-                    element={
-                        <AdminDashboard />
-                    }
+                    element={<AdminDashboard />}
                 />
-
-
             </Routes>
 
+            {/* GLOBAL DEVBUDDY ASSISTANT */}
+            <DevBuddy />
         </>
-
     )
 }
-
 
 export default App
